@@ -30,13 +30,6 @@ public:
     bool passed() { return _state == pass || _state == xpass; }
 };
 
-class TestResults
-{
-public:
-    TestResult _left;
-    TestResult _right;
-};
-
 class Program : public ProgramBase
 {
     bool parse(CharacterSource* s, String m)
@@ -55,7 +48,7 @@ class Program : public ProgramBase
         } while (true);
     }
 
-    void parseTestLog(CharacterSource s, bool right)
+    void parseTestLog(CharacterSource s)
     {
         TestResult result;
         do {
@@ -82,20 +75,7 @@ class Program : public ProgramBase
                 if (parse(&s, _states[i])) {
                     result._state = _testStates[i];
                     String name = s.delimitString(_eol, &eof);
-                    if (!right) {
-                        TestResults results;
-                        results._left = result;
-                        _results.add(name, results);
-                    }
-                    else {
-                        if (_results.hasKey(name))
-                            _results[name]._right = result;
-                        else {
-                            TestResults results;
-                            results._right = result;
-                            _results.add(name, results);
-                        }
-                    }
+                    _results.add(name, result);
                     result = TestResult();
                     break;
                 }
@@ -107,9 +87,9 @@ class Program : public ProgramBase
 
     void run()
     {
-        if (_arguments.count() < 2) {
+        if (_arguments.count() < 1) {
             console.write("Syntax: " + _arguments[0] +
-                " <first log file name> <second log file name>\n");
+                " <log file name>\n");
             return;
         }
         _states[0] = "PASS";        _testStates[0] = pass;
@@ -126,15 +106,11 @@ class Program : public ProgramBase
         for (int i = 0; i < 11; ++i)
             _states[i] += ": ";
         String l1 = File(_arguments[1], true).contents();
-        String l2 = File(_arguments[2], true).contents();
         _eol = String(codePoint(10));
-        parseTestLog(l1, false);
-        parseTestLog(l2, true);
+        parseTestLog(l1);
 
-        double cyclesBefore = 0;
-        double cyclesAfter = 0;
-        double bytesBefore = 0;
-        double bytesAfter = 0;
+        double cycles = 0;
+        double bytes = 0;
         int speedTests = 0;
         int sizeTests = 0;
         for (auto e : _results) {
@@ -165,65 +141,24 @@ class Program : public ProgramBase
                     }
                 }
             } while (true);
-            TestResults results = e.value();
+            TestResult result = e.value();
             if (optimization == 1) {
-                if (!results._left.passed())
-                    results._left._cycles = -1;
-                if (!results._right.passed())
-                    results._right._cycles = -1;
-                if (results._left._cycles != -1) {
-                    if (results._right._cycles != -1) {
-                        cyclesBefore += results._left._cycles;
-                        cyclesAfter += results._right._cycles;
-                        ++speedTests;
-                    }
-                    else {
-                        cyclesBefore += results._left._cycles;
-                        cyclesAfter += results._left._cycles;
-                        ++speedTests;
-                    }
-                }
-                else {
-                    if (results._right._cycles != -1) {
-                        cyclesBefore += results._right._cycles;
-                        cyclesAfter += results._right._cycles;
-                        ++speedTests;
-                    }
+                if (result.passed()) {
+                    cycles += result._cycles;
+                    ++speedTests;
                 }
             }
             if (optimization == 2) {
-                if (!results._left.passed())
-                    results._left._bytes = -1;
-                if (!results._right.passed())
-                    results._right._bytes = -1;
-                if (results._left._bytes != -1) {
-                    if (results._right._bytes != -1) {
-                        bytesBefore += results._left._bytes;
-                        bytesAfter += results._right._bytes;
-                        ++sizeTests;
-                    }
-                    else {
-                        bytesBefore += results._left._bytes;
-                        bytesAfter += results._left._bytes;
-                        ++sizeTests;
-                    }
-                }
-                else {
-                    if (results._right._bytes != -1) {
-                        bytesBefore += results._right._bytes;
-                        bytesAfter += results._right._bytes;
-                        ++sizeTests;
-                    }
+                if (result.passed()) {
+                    bytes += result._bytes;
+                    ++sizeTests;
                 }
             }
         }
-        printf("Cycles: Before %f, after: %f in %i tests\n",
-            cyclesBefore/speedTests, cyclesAfter/speedTests, speedTests);
-        printf("Bytes: Before %f, after: %f in %i tests\n",
-            bytesBefore/sizeTests, bytesAfter/sizeTests, sizeTests);
+        printf("%f %f %f %f\n",cycles,cycles/speedTests,bytes,bytes/sizeTests);
     }
     String _eol;
     String _states[11];
     TestState _testStates[11];
-    HashTable<String, TestResults> _results;
+    HashTable<String, TestResult> _results;
 };

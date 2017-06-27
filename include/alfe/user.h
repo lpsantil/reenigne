@@ -3,6 +3,8 @@
 #ifndef INCLUDED_USER_H
 #define INCLUDED_USER_H
 
+#include "alfe/bitmap.h"
+
 // TODO: Xlib port
 
 #include <windows.h>
@@ -389,6 +391,12 @@ public:
         IF_ZERO_THROW(ClientToScreen(_hWnd, &p));
         return Vector(p.x, p.y);
     }
+    Vector mousePosition()
+    {
+        POINT point;
+        IF_ZERO_THROW(GetCursorPos(&point));
+        return Vector(point.x, point.y) - clientToScreen(Vector(0, 0));
+    }
     virtual HWND hWndParent()
     {
         if (_windowsParent != 0)
@@ -713,6 +721,8 @@ protected:
             case WM_KILLFOCUS:
                 releaseCapture();
                 break;
+            case WM_GETDLGCODE:
+                return DLGC_WANTMESSAGE;
             case WM_COMMAND:
                 if (lParam != 0) {
                     WindowsWindow* window = getContext(lParam);

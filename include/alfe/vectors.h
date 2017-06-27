@@ -120,7 +120,11 @@ public:
     Vector2 operator<<(int n) const { Vector2 t = *this; return t <<= n; }
     template<class T2> Vector2 operator*(const Rotor2<T2>& r) const
     {
-        return Vector2<T>(x*r._c + y*r._s, y*r._c - x*r._s);
+        T2 matrix[4];
+        r.toMatrix(matrix);
+        return Vector2<T>(
+            matrix[0]*x + matrix[1]*y,
+            matrix[2]*x + matrix[3]*y);
     }
     template<class T2> Vector2 operator/(const Rotor2<T2>& r) const
     {
@@ -401,6 +405,11 @@ public:
         return x >= 0 && y >= 0 && z >= 0 && x < volume.x && y < volume.y &&
             z < volume.z;
     }
+	Hash hash() const
+	{
+		return Hash(typeid(Vector3)).mixin(x).mixin(y).mixin(z);
+	}
+
 
     T x;
     T y;

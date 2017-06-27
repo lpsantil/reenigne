@@ -175,7 +175,7 @@ private:
                         (!_wordSize ? ib() : iw());
                     case 2: return "NOT " + ea();
                     case 3: return "NEG " + ea();
-                    case 4: return "NUL " + ea();
+                    case 4: return "MUL " + ea();
                     case 5: return "IMUL " + ea();
                     case 6: return "DIV " + ea();
                     case 7: return "IDIV " + ea();
@@ -1254,7 +1254,8 @@ stateLoadD,        stateLoadD,        stateMisc,         stateMisc};
 
                 case stateMovS:
                     _wait = (_rep != 0 ? 9 : 10);
-                    lodS(stateMovS2);
+                    if (repCheck())
+                        lodS(stateMovS2);
                     break;
                 case stateMovS2:
                     _afterRep = stateMovS;
@@ -1262,15 +1263,22 @@ stateLoadD,        stateLoadD,        stateMisc,         stateMisc};
                     break;
                 case stateRepAction:
                     _state = stateEndInstruction;
-                    if (_rep != 0) {
+                    if (_rep != 0 && cx() != 0) {
                         --cx();
                         _afterCheckInt = _afterRep;
-                        if (cx() == 0 || (zf() == (_rep == 1)))
+                        if (cx() == 0)
+                            _afterCheckInt = stateEndInstruction;
+                        if ((_afterRep == stateCmpS || _afterRep == stateScaS)
+                            && (zf() == (_rep == 1)))
                             _afterCheckInt = stateEndInstruction;
                         _state = stateCheckInt;
                     }
                     break;
-                case stateCmpS: _wait = 14; lodS(stateCmpS2); break;
+                case stateCmpS:
+                    _wait = 14;
+                    if (repCheck())
+                        lodS(stateCmpS2);
+                    break;
                 case stateCmpS2:
                     _destination = _data;
                     lodDIS(stateCmpS3);
@@ -1292,20 +1300,27 @@ stateLoadD,        stateLoadD,        stateMisc,         stateMisc};
 
                 case stateStoS:
                     _wait = (_rep != 0 ? 6 : 7);
-                    _data = getAccum();
-                    _afterRep = stateStoS;
-                    stoS(stateRepAction);
+                    if (repCheck()) {
+                        _data = getAccum();
+                        _afterRep = stateStoS;
+                        stoS(stateRepAction);
+                    }
                     break;
                 case stateLodS:
                     _wait = (_rep != 0 ? 9 : 8);
-                    lodS(stateLodS2);
+                    if (repCheck())
+                        lodS(stateLodS2);
                     break;
                 case stateLodS2:
                     setAccum();
                     _afterRep = stateLodS;
                     _state = stateRepAction;
                     break;
-                case stateScaS: _wait = 11; lodDIS(stateScaS2); break;
+                case stateScaS:
+                    _wait = 11;
+                    if (repCheck())
+                        lodDIS(stateScaS2);
+                    break;
                 case stateScaS2:
                     _destination = getAccum();
                     _source = _data;
@@ -2110,6 +2125,14 @@ private:
         di() += stringIncrement();
         _segment = 0;
         initIO(state, ioWrite, _wordSize);
+    }
+    bool repCheck()
+    {
+        if (_rep != 0 && cx() == 0) {
+            _state = stateRepAction;
+            return false;
+        }
+        return true;
     }
     void end(int wait) { _wait = wait; _state = stateEndInstruction; }
     void push(UInt16 data, State state = stateEndInstruction)
