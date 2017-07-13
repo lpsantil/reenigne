@@ -37,6 +37,8 @@ cpu 8086
   ;      8 +VIDEO ENABLE                                 8
   ;   0x10 +1BPP                                         0
   ;   0x20 +ENABLE BLINK                                 0
+  ; *** http://stanislavs.org/helppc/6845.html    ***
+  ; *** 3D8 = CGA Mode Select Controller Register ***
   mov dx,0x3d8
   mov al,0x09
   out dx,al
@@ -48,74 +50,92 @@ cpu 8086
   ;      8 +OVERSCAN I                                   0
   ;   0x10 +BACKGROUND I                                 0
   ;   0x20 +COLOR SEL                                    0
+  ; *** 3D9 = CGA Color Select Register ***
   inc dx
   mov al,0
   out dx,al
 
+  ; *** 3D4 = CGA Index Register ***
   mov dl,0xd4
 
+  ; *** Select Register 0x00, write 0x71 (CO80) Horizontal total characters  ***
   ;   0xff Horizontal Total                             71
   mov ax,0x7100
   out dx,ax
 
+  ; *** Select Register 01, write 0x50 (CO80) Horizontal displayed characters per line  ***
   ;   0xff Horizontal Displayed                         50
   mov ax,0x5001
   out dx,ax
 
+  ; *** Select Register 02, write 0x5A (CO80) Horizontal Synch Pos  ***
   ;   0xff Horizontal Sync Position                     5a
   mov ax,0x5a02
   out dx,ax
 
+  ; *** Select Register 03, write 00 (0??) Horizontal Synch Width in Chars  ***
   ;   0x0f Horizontal Sync Width                        0d
   mov ax,0x0003
   out dx,ax
 
+  ; *** Select Register 04, write 0x3D (62??) Vert. total lines  ***
   ;   0x7f Vertical Total                               3d
   mov ax,0x3d04
   out dx,ax
 
+  ; *** Select Register 05, write 00 (0??) Vert. scan lines  ***
   ;   0x1f Vertical Total Adjust                        00
   mov ax,0x0005
   out dx,ax
 
+  ; *** Select Register 06, write 0x02 (2??) Vert. display rows  ***
   ;   0x7f Vertical Displayed                           02
   mov ax,0x0206
   out dx,ax
 
+  ; *** Select Register 07, write 0x18 (24??) Vert. synch pos.  ***
   ;   0x7f Vertical Sync Position                       18
   mov ax,0x1807
   out dx,ax
 
+  ; *** Select Register 08, write 0x02 Interlace mode on  ***
   ;   0x03 Interlace Mode                               02
   mov ax,0x0208
   out dx,ax
 
+  ; *** Select Register 09, write 00 (0??) Maximum scan line address  ***
   ;   0x1f Max Scan Line Address                        00
   mov ax,0x0009
   out dx,ax
 
+  ; *** Select Register 0A, write 0x06 (C080) Cursor start scan line  ***
   ; Cursor Start                                        06
   ;   0x1f Cursor Start                                  6
   ;   0x60 Cursor Mode                                   0
   mov ax,0x060a
   out dx,ax
 
+  ; *** Select Register 0B, write 0x07 (CO80) Cursor end scan line  ***
   ;   0x1f Cursor End                                   07
   mov ax,0x070b
   out dx,ax
 
+  ; *** Select Register 0C, write 00 (C080) Start address MSB  ***
   ;   0x3f Start Address (H)                            00
   mov ax,0x000c
   out dx,ax
 
+  ; *** Select Register 0D, write 00 (C080) Start address LSB  ***
   ;   0xff Start Address (L)                            00
   mov ax,0x000d
   out dx,ax
 
+  ; *** Select Register 0E, write 0x03 (??) Cursor address MSB  ***
   ;   0x3f Cursor (H)                                   03
   mov ax,0x030e
   out dx,ax
 
+  ; *** Select Register 0F, write 0xC0 (??) Cursor address MSB  ***
   ;   0xff Cursor (L)                                   c0
   mov ax,0xc00f
   out dx,ax
@@ -149,12 +169,15 @@ cpu 8086
     jnz %%waitForNoVerticalSync
 %endmacro
 
-
+  ; *** Look at 3DA status register ***
   mov dl,0xda
+  ; *** Assume a vert retrace in progress ***
   mov bx,80     ; Initial
   mov cx,0      ; Frame counter
 frameLoop:
+  ; *** Synchronize and let vsync start ***
   waitForVerticalSync
+  ; *** Wait for vsync to finish now ***
   waitForNoVerticalSync
 
   ; During line 0-1 we set up the start address for line 2 and change the vertical total to 0x01
